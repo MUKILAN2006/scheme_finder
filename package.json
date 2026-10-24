@@ -6,8 +6,12 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+<<<<<<< HEAD
     "preview": "vite preview",
     "test": "node --test tests/eligibilityEngine.test.js"
+=======
+    "preview": "vite preview"
+>>>>>>> origin/main
   },
   "dependencies": {
     "canvas-confetti": "^1.9.4",
