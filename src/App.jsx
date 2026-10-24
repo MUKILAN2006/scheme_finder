@@ -6,7 +6,6 @@ import EligibilityResults from './components/EligibilityResults';
 import SchemeDetailModal from './components/SchemeDetailModal';
 import OCRScannerModule from './components/OCRScannerModule';
 import ApplicationFormModal from './components/ApplicationFormModal';
-<<<<<<< HEAD
 import PrivacyDataModal from './components/PrivacyDataModal';
 
 import { SCHEMES_DATA } from './data/schemes';
@@ -54,32 +53,6 @@ export default function App() {
     } catch (e) {
       return ['pm-kisan', 'ayushman-bharat'];
     }
-=======
-
-import { SCHEMES_DATA } from './data/schemes';
-import { evaluateAllSchemes } from './utils/eligibilityEngine';
-import { Bot, UserCheck, Sparkles, Scan, FileCheck } from 'lucide-react';
-
-export default function App() {
-  const [theme, setTheme] = useState('dark');
-  const [audioEnabled, setAudioEnabled] = useState(true);
-  const [language, setLanguage] = useState('en');
-  const [activeTab, setActiveTab] = useState('chat'); // 'chat' | 'form' | 'results' | 'ocr'
-
-  // Citizen profile state
-  const [profile, setProfile] = useState({
-    name: 'Rajesh Kumar',
-    age: 24,
-    gender: 'Male',
-    state: 'Tamil Nadu',
-    district: 'Chennai',
-    occupation: 'Farmer',
-    category: 'OBC',
-    education: 'Class 10th Passed',
-    income: 180000,
-    isDisabled: false,
-    maritalStatus: 'Single'
->>>>>>> origin/main
   });
 
   // Evaluated schemes list
@@ -89,16 +62,12 @@ export default function App() {
   const [detailModalScheme, setDetailModalScheme] = useState(null);
   const [detailModalEvaluation, setDetailModalEvaluation] = useState(null);
   const [appFormScheme, setAppFormScheme] = useState(null);
-<<<<<<< HEAD
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
-=======
->>>>>>> origin/main
 
   // Sync evaluation whenever profile updates
   useEffect(() => {
     const results = evaluateAllSchemes(profile, SCHEMES_DATA);
     setEvaluatedSchemes(results);
-<<<<<<< HEAD
     try {
       localStorage.setItem('ys_citizen_profile', JSON.stringify(profile));
     } catch (e) {
@@ -119,13 +88,6 @@ export default function App() {
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('ys_theme', theme);
-=======
-  }, [profile]);
-
-  // Apply theme attribute to body
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
->>>>>>> origin/main
   }, [theme]);
 
   const handleRunEligibility = () => {
@@ -134,7 +96,6 @@ export default function App() {
     setActiveTab('results');
   };
 
-<<<<<<< HEAD
   const handleToggleSaveScheme = (schemeId) => {
     setSavedSchemeIds(prev => 
       prev.includes(schemeId) 
@@ -169,13 +130,6 @@ export default function App() {
 
   const eligibleCount = evaluatedSchemes.filter(s => s.status === 'Eligible').length;
 
-=======
-  const handleOpenOCRForScheme = (scheme) => {
-    setAppFormScheme(scheme);
-    setActiveTab('ocr');
-  };
-
->>>>>>> origin/main
   return (
     <div className="app-container">
       {/* Top Navigation Bar */}
@@ -187,20 +141,16 @@ export default function App() {
         language={language} 
         setLanguage={setLanguage}
         onOpenOCR={() => setActiveTab('ocr')}
-<<<<<<< HEAD
         onOpenPrivacy={() => setShowPrivacyModal(true)}
         savedCount={savedSchemeIds.length}
         onViewSaved={() => {
           setActiveTab('results');
         }}
-=======
->>>>>>> origin/main
       />
 
       {/* Main Feature Tabs */}
       <nav className="main-nav-tabs">
         <button 
-<<<<<<< HEAD
           className={`tab-btn ${activeTab === 'results' ? 'active' : ''}`}
           onClick={() => setActiveTab('results')}
         >
@@ -222,42 +172,15 @@ export default function App() {
         </button>
 
         <button 
-=======
->>>>>>> origin/main
           className={`tab-btn ${activeTab === 'chat' ? 'active' : ''}`}
           onClick={() => setActiveTab('chat')}
         >
           <Bot size={18} /> AI Chatbot Intake
         </button>
-<<<<<<< HEAD
-=======
-
-        <button 
-          className={`tab-btn ${activeTab === 'form' ? 'active' : ''}`}
-          onClick={() => setActiveTab('form')}
-        >
-          <UserCheck size={18} /> Quick Profile Form
-        </button>
-
-        <button 
-          className={`tab-btn ${activeTab === 'results' ? 'active' : ''}`}
-          onClick={() => setActiveTab('results')}
-        >
-          <Sparkles size={18} /> Eligible Schemes Dashboard ({evaluatedSchemes.filter(s => s.isEligible).length})
-        </button>
-
-        <button 
-          className={`tab-btn ${activeTab === 'ocr' ? 'active' : ''}`}
-          onClick={() => setActiveTab('ocr')}
-        >
-          <Scan size={18} /> OCR Document Scanner
-        </button>
->>>>>>> origin/main
       </nav>
 
       {/* Main View Area */}
       <main className="main-content">
-<<<<<<< HEAD
         {activeTab === 'results' && (
           <EligibilityResults 
             evaluatedSchemes={evaluatedSchemes} 
@@ -273,14 +196,6 @@ export default function App() {
             onOpenDraftModal={(scheme) => setAppFormScheme(scheme)}
             savedSchemeIds={savedSchemeIds}
             onToggleSaveScheme={handleToggleSaveScheme}
-=======
-        {activeTab === 'chat' && (
-          <AIChatbot 
-            profile={profile} 
-            setProfile={setProfile} 
-            onCheckEligibility={handleRunEligibility} 
-            audioEnabled={audioEnabled}
->>>>>>> origin/main
           />
         )}
 
@@ -292,26 +207,10 @@ export default function App() {
           />
         )}
 
-<<<<<<< HEAD
-=======
-        {activeTab === 'results' && (
-          <EligibilityResults 
-            evaluatedSchemes={evaluatedSchemes} 
-            profile={profile}
-            onSelectScheme={(scheme, evalItem) => {
-              setDetailModalScheme(scheme);
-              setDetailModalEvaluation(evalItem);
-            }}
-            onOpenOCR={(scheme) => handleOpenOCRForScheme(scheme)}
-          />
-        )}
-
->>>>>>> origin/main
         {activeTab === 'ocr' && (
           <OCRScannerModule 
             profile={profile}
             setProfile={setProfile}
-<<<<<<< HEAD
             selectedScheme={appFormScheme || evaluatedSchemes[0]?.scheme || SCHEMES_DATA[0]}
             onProceedToForm={() => {
               const target = appFormScheme || evaluatedSchemes[0]?.scheme || SCHEMES_DATA[0];
@@ -328,14 +227,6 @@ export default function App() {
             audioEnabled={audioEnabled}
           />
         )}
-=======
-            selectedScheme={appFormScheme || SCHEMES_DATA[0]}
-            onProceedToForm={() => {
-              if (!appFormScheme) setAppFormScheme(SCHEMES_DATA[0]);
-            }}
-          />
-        )}
->>>>>>> origin/main
       </main>
 
       {/* Detail Scheme Modal */}
@@ -344,15 +235,9 @@ export default function App() {
           scheme={detailModalScheme}
           evaluation={detailModalEvaluation}
           onClose={() => setDetailModalScheme(null)}
-<<<<<<< HEAD
           onApplyDraft={(scheme) => {
             setDetailModalScheme(null);
             setAppFormScheme(scheme);
-=======
-          onApplyNow={(scheme) => {
-            setDetailModalScheme(null);
-            handleOpenOCRForScheme(scheme);
->>>>>>> origin/main
           }}
         />
       )}
@@ -365,7 +250,6 @@ export default function App() {
           onClose={() => setAppFormScheme(null)}
         />
       )}
-<<<<<<< HEAD
 
       {/* Privacy & Local Data Management Modal */}
       {showPrivacyModal && (
@@ -376,8 +260,6 @@ export default function App() {
           savedCount={savedSchemeIds.length}
         />
       )}
-=======
->>>>>>> origin/main
     </div>
   );
 }
