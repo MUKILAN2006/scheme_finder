@@ -1,3 +1,33 @@
+# Dependencies
+node_modules/
+
+# Production builds
+dist/
+dist-ssr/
+*.local
+
+# Environment variables
 .env
 .env.*
 !.env.example
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+build.log
+*.log
+
+# Editor & OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Database & Runtime Security Storage (Created at server runtime)
+data/*.db
+data/*.db-wal
+data/*.db-shm
+data/.encryption_secret
+data/encrypted_docs/*
+!data/encrypted_docs/.gitkeep

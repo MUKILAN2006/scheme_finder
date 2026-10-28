@@ -857,6 +857,55 @@ app.post('/api/chat/message', chatLimiter, async (req, res) => {
 });
 
 // -------------------------------------------------------------
+// -------------------------------------------------------------
+// NVIDIA AI Chatbot NIM Proxy (for Production & Cloud Deployment)
+// -------------------------------------------------------------
+app.post('/api/nvidia/chat/completions', async (req, res) => {
+  try {
+    const clientAuth = req.headers['authorization'];
+    const defaultKey = process.env.NVIDIA_API_KEY || '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';
+    const authHeader = clientAuth || ('Bearer ' + defaultKey);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+    const nvidiaResponse = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': authHeader
+      },
+      body: JSON.stringify(req.body),
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+
+    const data = await nvidiaResponse.json();
+    res.status(nvidiaResponse.status).json(data);
+  } catch (err) {
+    console.error('[NVIDIA Proxy Error]', err.message);
+    res.status(502).json({
+      error: {
+        message: 'Failed to connect to NVIDIA NIM AI: ' + err.message,
+        type: 'proxy_error'
+      }
+    });
+  }
+});
+
+// -------------------------------------------------------------
+// Production Static Frontend Serving (Vite SPA)
+// -------------------------------------------------------------
+const DIST_DIR = path.join(__dirname, '..', 'dist');
+if (fs.existsSync(DIST_DIR)) {
+  app.use(express.static(DIST_DIR));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api')) return next();
+    res.sendFile(path.join(DIST_DIR, 'index.html'));
+  });
+}
+
+// -------------------------------------------------------------
 // Safe Global Error Handler (No Stack Traces Leaked)
 // -------------------------------------------------------------
 app.use((err, req, res, next) => {

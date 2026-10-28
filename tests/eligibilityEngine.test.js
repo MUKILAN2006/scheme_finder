@@ -184,7 +184,7 @@ test('NVIDIA Chat Service - Sends chat through the proxy and returns the model r
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (url, options) => {
     assert.equal(url, '/api/nvidia/chat/completions');
-    assert.equal(options.headers.Authorization, undefined);
+    assert.equal(options.headers.Authorization, 'Bearer test-key');
     assert.ok(JSON.parse(options.body).messages[0].content.includes('general-purpose AI assistant'));
     return new Response(JSON.stringify({
       choices: [{ message: { content: 'Here is a general answer.' } }]
@@ -203,4 +203,21 @@ test('NVIDIA Chat Service - Sends chat through the proxy and returns the model r
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test('NLP Parser - Ignores queries like "what are schemes i am eligible for" as names and extracts details accurately', async () => {
+  const { parseNaturalLanguageInput } = await import('../src/utils/nlpParser.js');
+  
+  const queryResult = parseNaturalLanguageInput('wht are the schemes i am eligible for?');
+  assert.equal(queryResult.name, undefined);
+
+  const priyaResult = parseNaturalLanguageInput('I am Priya from Tamil Nadu, 22 years old');
+  assert.equal(priyaResult.name, 'Priya');
+  assert.equal(priyaResult.age, 22);
+  assert.equal(priyaResult.state, 'Tamil Nadu');
+
+  const farmerResult = parseNaturalLanguageInput('My name is Rajesh Kumar, I am a farmer earning 1.5 lakhs');
+  assert.equal(farmerResult.name, 'Rajesh Kumar');
+  assert.equal(farmerResult.occupation, 'Farmer');
+  assert.equal(farmerResult.income, 150000);
 });

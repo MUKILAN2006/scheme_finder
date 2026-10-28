@@ -1,17 +1,42 @@
-import { STATES_AND_DISTRICTS, OCCUPATIONS, CATEGORIES, EDUCATION_LEVELS } from '../data/statesAndDistricts';
+import { STATES_AND_DISTRICTS, OCCUPATIONS, CATEGORIES, EDUCATION_LEVELS } from '../data/statesAndDistricts.js';
+
+const EXCLUDED_NAME_WORDS = new Set([
+  'eligible', 'for', 'interested', 'looking', 'asking', 'searching', 'wondering',
+  'applying', 'trying', 'student', 'farmer', 'artisan', 'unemployed', 'employed',
+  'worker', 'labourer', 'laborer', 'vendor', 'businessman', 'business', 'entrepreneur',
+  'disabled', 'handicapped', 'blind', 'married', 'single', 'widow', 'widowed',
+  'divorced', 'senior', 'citizen', 'indian', 'poor', 'needy', 'bpl', 'here',
+  'ready', 'new', 'not', 'just', 'from', 'living', 'working', 'staying', 'a',
+  'an', 'the', 'to', 'in', 'at', 'on', 'with', 'about', 'schemes', 'scheme',
+  'yojana', 'help', 'ok', 'okay', 'yes', 'no', 'having', 'getting', 'qualification',
+  'graduate', 'boy', 'girl', 'man', 'woman', 'what', 'which', 'tell', 'me'
+]);
 
 export function parseNaturalLanguageInput(text, currentProfile = {}) {
   const extracted = { ...currentProfile };
   const lower = text.toLowerCase();
 
   // 1. Extract Name (e.g. "My name is John", "I am Priya", "Name is Kumar")
-  const nameMatch = text.match(/(?:my name is|i am|name is|call me)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/i);
-  if (nameMatch && !["a", "an", "the", "working", "living", "from"].includes(nameMatch[1].toLowerCase())) {
-    extracted.name = nameMatch[1];
+  const explicitNameMatch = text.match(/(?:my name is|call me|name is)\s+([A-Za-z]+(?:\s+[A-Za-z]+)?)/i);
+  const iamNameMatch = text.match(/\bi am\s+([A-Za-z]+(?:\s+[A-Za-z]+)?)\b/i);
+  const candidateMatch = explicitNameMatch || iamNameMatch;
+
+  if (candidateMatch) {
+    const rawCandidate = candidateMatch[1].trim();
+    let words = rawCandidate.split(/\s+/);
+    // If the second word is an excluded word like 'from', 'living', 'working', drop it
+    if (words.length > 1 && EXCLUDED_NAME_WORDS.has(words[1].toLowerCase())) {
+      words = [words[0]];
+    }
+    // If first word is not excluded, take the candidate name
+    if (words.length > 0 && !EXCLUDED_NAME_WORDS.has(words[0].toLowerCase()) && words[0].length >= 2) {
+      extracted.name = words.join(' ');
+    }
   }
 
   // 2. Extract Age (e.g. "22 years old", "age 35", "I am 19", "25 y/o")
-  const ageMatch = lower.match(/\b(?:i am\s+)?(\d{1,2})\s*(?:years|yr|yrs|year|y\/o|age)?\b/);
+  const ageMatch = lower.match(/\b(?:i am|age is|age:?)\s*(\d{1,2})\b/) ||
+                   lower.match(/\b(\d{1,2})\s*(?:years old|years|yr|yrs|year|y\/o|yo)\b/);
   if (ageMatch) {
     const ageNum = parseInt(ageMatch[1], 10);
     if (ageNum >= 1 && ageNum <= 100) {

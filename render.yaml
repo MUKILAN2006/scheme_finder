@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: scheme-finder
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 22.12.0
+      - key: NVIDIA_API_KEY
+        value: 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

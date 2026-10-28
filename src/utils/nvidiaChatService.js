@@ -5,6 +5,7 @@
 
 import { SCHEMES_DATA } from '../data/schemes.js';
 
+export const DEFAULT_NVIDIA_API_KEY = "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";
 export const DEFAULT_NVIDIA_MODEL = "meta/llama-3.2-11b-vision-instruct";
 
 /**
@@ -19,16 +20,16 @@ export function buildSystemPrompt(currentProfile = {}, language = 'en') {
 Answer the user's actual question, including questions unrelated to government schemes. Do not force every conversation into scheme eligibility or profile intake. When a question is about Indian welfare schemes, use the verified knowledge base below and explain how the citizen can check current official details.
 
 LANGUAGE & TONE:
-- Support English, Tamil, Tanglish, and other languages when possible. Respond in the language the user uses unless they ask for another language.
-- Maintain a warm and respectful tone; keep answers clear and relevant.
-- Use bullets or steps when they make an answer easier to follow.
-- Be honest about uncertainty and limitations. Do not invent facts, current events, citations, scheme rules, or personal details. For time-sensitive or high-impact topics, say when information may need verification and recommend a reliable official or qualified source.
+- Support English, Tamil, and Tanglish. If the citizen writes in Tamil or asks in Tamil, reply in Tamil (or clear bilingual Tamil/English).
+- Maintain a warm, encouraging, and respectful tone ("Namaste", "Vanakkam", "Citizen").
+- Keep answers concise, helpful, and formatted with bullet points for readability.
 
 CAPABILITIES:
-1. Answer general knowledge, explanations, writing, translation, brainstorming, and follow-up questions.
-2. Help citizens understand government schemes, eligibility, benefits, documents, and application steps.
-3. Ask for profile details only when they are relevant to the user's request, and ask one or two clarifying questions at a time.
-4. Acknowledge and use corrections the user makes to their profile.
+1. Conduct an interactive conversational intake to find which schemes the citizen qualifies for.
+2. Ask relevant follow-up questions one or two at a time based on what is missing from their profile (e.g. age, state, occupation, annual income, social category, land ownership, education).
+3. If the citizen provides partial or incomplete answers, gracefully ask clarifying follow-ups.
+4. If the citizen wants to correct their details (e.g. "Actually I am 22" or "My income is 1.5 Lakhs"), acknowledge the change warmly.
+5. Answer questions about specific schemes (benefits, documents needed, deadlines, application steps).
 
 CURRENT KNOWN CITIZEN PROFILE:
 ${JSON.stringify(currentProfile, null, 2)}
@@ -46,13 +47,29 @@ Only include keys that the user stated or updated.`;
 }
 
 /**
- * Calls NVIDIA NIM API through the same-origin development proxy.
+ * Calls NVIDIA NIM API for chat completion.
+ * Tries the Vite development proxy (/api/nvidia) first, with fallback to direct NVIDIA endpoint.
  * @param {Array} messages - Chat history [{sender, text}]
  * @param {Object} profile - Current citizen profile
+ * @param {String} apiKey - NVIDIA API key
+ * @param {String} language - Preferred language code
  * @returns {Promise<Object>} { reply, extractedProfile }
  */
-export async function sendNvidiaChatMessage(messages, profile = {}, language = 'en') {
-  const systemPrompt = buildSystemPrompt(profile, language);
+export async function sendNvidiaChatMessage(messages, profile = {}, apiKey = DEFAULT_NVIDIA_API_KEY, language = 'en') {
+  // Support both (messages, profile, apiKey, language) and (messages, profile, language)
+  let activeKey = DEFAULT_NVIDIA_API_KEY;
+  let activeLang = 'en';
+
+  if (typeof apiKey === 'string') {
+    if (['en', 'ta', 'te', 'hi'].includes(apiKey.toLowerCase())) {
+      activeLang = apiKey;
+    } else if (apiKey.trim()) {
+      activeKey = apiKey.trim();
+      if (language) activeLang = language;
+    }
+  }
+
+  const systemPrompt = buildSystemPrompt(profile, activeLang);
   const formattedMessages = [
     { role: "system", content: systemPrompt },
     ...messages.slice(-8).map(message => ({
@@ -61,51 +78,74 @@ export async function sendNvidiaChatMessage(messages, profile = {}, language = '
     }))
   ];
 
-  try {
-    const response = await fetch("/api/nvidia/chat/completions", {
-      method: "POST",
-      headers: {
+  const payload = {
+    model: DEFAULT_NVIDIA_MODEL,
+    messages: formattedMessages,
+    temperature: 0.6,
+    top_p: 0.9,
+    max_tokens: 800
+  };
+
+  // Determine endpoint: proxy first, then direct endpoint fallback
+  const endpointsToTry = ["/api/nvidia/chat/completions", "https://integrate.api.nvidia.com/v1/chat/completions"];
+
+  let lastError = null;
+
+  for (const endpoint of endpointsToTry) {
+    let timeoutId;
+    try {
+      const headers = {
         "Content-Type": "application/json",
-        "Accept": "application/json"
-      },
-      body: JSON.stringify({
-        model: DEFAULT_NVIDIA_MODEL,
-        messages: formattedMessages,
-        temperature: 0.6,
-        top_p: 0.9,
-        max_tokens: 800
-      })
-    });
+        "Accept": "application/json",
+        "Authorization": `Bearer ${activeKey.trim()}`
+      };
 
-    if (!response.ok) {
-      const errData = await response.json().catch(() => ({}));
-      const detail = errData.detail || errData.message;
-      throw new Error(detail
-        ? `NVIDIA API error (${response.status}): ${detail}`
-        : `NVIDIA API error (${response.status}). Check the API key, model access, and NVIDIA service status.`);
-    }
+      const controller = new AbortController();
+      timeoutId = setTimeout(() => controller.abort(), 25000);
 
-    const data = await response.json();
-    const rawReply = data.choices?.[0]?.message?.content;
-    if (typeof rawReply !== 'string' || !rawReply.trim()) {
-      throw new Error('NVIDIA returned an empty or invalid response. Please try again.');
-    }
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
 
-    let cleanedReply = rawReply;
-    let extractedProfile = {};
-    const profileMatch = rawReply.match(/<PROFILE_UPDATE>([\s\S]*?)<\/PROFILE_UPDATE>/);
-    if (profileMatch) {
-      try {
-        extractedProfile = JSON.parse(profileMatch[1].trim());
-        cleanedReply = rawReply.replace(/<PROFILE_UPDATE>[\s\S]*?<\/PROFILE_UPDATE>/, '').trim();
-      } catch (error) {
-        console.warn("Could not parse profile update JSON:", error);
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        const detail = errData.error?.message || errData.detail || errData.message;
+        throw new Error(detail
+          ? `NVIDIA API error (${response.status}): ${detail}`
+          : `NVIDIA API error (${response.status}) on ${endpoint}`);
       }
-    }
 
-    return { reply: cleanedReply, extractedProfile };
-  } catch (error) {
-    console.error("NVIDIA API call failed:", error);
-    throw error;
+      const data = await response.json();
+      const rawReply = data.choices?.[0]?.message?.content;
+      if (typeof rawReply !== 'string' || !rawReply.trim()) {
+        throw new Error('NVIDIA returned an empty or invalid response. Please try again.');
+      }
+
+      let cleanedReply = rawReply;
+      let extractedProfile = {};
+      const profileMatch = rawReply.match(/<PROFILE_UPDATE>([\s\S]*?)<\/PROFILE_UPDATE>/);
+      if (profileMatch) {
+        try {
+          extractedProfile = JSON.parse(profileMatch[1].trim());
+          cleanedReply = rawReply.replace(/<PROFILE_UPDATE>[\s\S]*?<\/PROFILE_UPDATE>/, '').trim();
+        } catch (error) {
+          console.warn("Could not parse profile update JSON:", error);
+        }
+      }
+
+      return { reply: cleanedReply, extractedProfile };
+    } catch (err) {
+      if (timeoutId) clearTimeout(timeoutId);
+      lastError = err;
+      console.warn(`Attempt at ${endpoint} failed:`, err.message);
+      // If there's another endpoint to try, continue
+    }
   }
+
+  console.error("NVIDIA API call failed:", lastError);
+  throw lastError;
 }
