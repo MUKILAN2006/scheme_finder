@@ -48,13 +48,42 @@ app.use((req, res, next) => {
   next();
 });
 
-// Strict CORS
+// Strict CORS supporting local development, Vercel frontend, and production deployment
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:3000',
+  'http://localhost:4173',
+  process.env.FRONTEND_URL,
+  process.env.CORS_ORIGIN
+].filter(Boolean);
+
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:3000', 'http://localhost:4173'],
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (
+      allowedOrigins.includes(origin) ||
+      /^https:\/\/.*\.vercel\.app$/.test(origin) ||
+      /^http:\/\/localhost(:\d+)?$/.test(origin) ||
+      /^http:\/\/127\.0\.0\.1(:\d+)?$/.test(origin)
+    ) {
+      return callback(null, true);
+    }
+    return callback(new Error('CORS blocked for origin: ' + origin));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
+
+// Health check endpoints for Render and uptime monitors
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', service: 'scheme-finder-backend', timestamp: new Date().toISOString() });
+});
+
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ status: 'ok', service: 'scheme-finder-backend', timestamp: new Date().toISOString() });
+});
 
 // Body parser with size limits to prevent Denial of Service
 app.use(express.json({ limit: '12mb' }));
@@ -899,9 +928,11 @@ app.post('/api/nvidia/chat/completions', async (req, res) => {
 const DIST_DIR = path.join(__dirname, '..', 'dist');
 if (fs.existsSync(DIST_DIR)) {
   app.use(express.static(DIST_DIR));
-  app.get('*', (req, res, next) => {
-    if (req.path.startsWith('/api')) return next();
-    res.sendFile(path.join(DIST_DIR, 'index.html'));
+  app.use((req, res, next) => {
+    if (req.method === 'GET' && !req.path.startsWith('/api')) {
+      return res.sendFile(path.join(DIST_DIR, 'index.html'));
+    }
+    next();
   });
 }
 
